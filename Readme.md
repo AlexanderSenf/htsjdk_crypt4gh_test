@@ -4,7 +4,7 @@ Download: git clone https://github.com/AlexanderSenf/htsjdk_crypt4gh_test.git
 
 Then cd htsjdk_crypt4gh_test
 
-Build: ant jar
+Build: ant package-for-store
 
 Test: there are two tests included, one to use SeekableCrypt4GHStream in isolation and test reading a random block by comparing it agains the plain file and the original SeekableStream class. And the second test opens a SamFileReader to verify that the SeekableCrypt4GH class can be used as input source.
 
@@ -12,12 +12,12 @@ The included test file is: htsjdk_crypt4gh_test.git, and an encrypted version is
 
 Test 1:
 
-java -jar dist/HtsjdkTest.jar 1 mapt.NA12156.altex.c4gh.john.bam john.sec
+java -jar store/HtsjdkTest.jar 1 mapt.NA12156.altex.c4gh.john.bam john.sec
 
 Test 2:
 
-java -jar dist/HtsjdkTest.jar 2 mapt.NA12156.altex.bam mapt.NA12156.altex.c4gh.john.bam john.sec
+java -jar store/HtsjdkTest.jar 2 mapt.NA12156.altex.bam mapt.NA12156.altex.c4gh.john.bam john.sec
 
 There is also a test file that was encrypted with htslib/samtools, as a way to test interoperability between htslib and htsjdk:
 
-java -jar dist/HtsjdkTest.jar 1 john.sam john.sec
+java -jar store/HtsjdkTest.jar 1 john.sam john.sec
