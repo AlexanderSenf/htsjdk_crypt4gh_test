@@ -4,7 +4,7 @@ Download: git clone https://github.com/AlexanderSenf/htsjdk_crypt4gh_test.git
 
 Then cd htsjdk_crypt4gh_test
 
-Build: ant package-for-store
+Build: ant jar copy-dependencies package-for-store
 
 Test: there are two tests included, one to use SeekableCrypt4GHStream in isolation and test reading a random block by comparing it agains the plain file and the original SeekableStream class. And the second test opens a SamFileReader to verify that the SeekableCrypt4GH class can be used as input source.
 
