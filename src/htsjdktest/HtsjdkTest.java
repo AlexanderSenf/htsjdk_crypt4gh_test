@@ -6,6 +6,8 @@
 package htsjdktest;
 
 import htsjdk.samtools.SAMFileHeader;
+import htsjdk.samtools.SAMFileWriter;
+import htsjdk.samtools.SAMFileWriterFactory;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMRecordIterator;
 import htsjdk.samtools.SamInputResource;
@@ -14,13 +16,17 @@ import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.seekablestream.SeekableCrypt4GHStream;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
+import htsjdk.samtools.util.Crypt4GHOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
@@ -54,11 +60,20 @@ public class HtsjdkTest {
                 String privateKeyFile = args[3];
                 
                 test2(inputFilePlain, inputFileEncrypted, privateKeyFile);
+            } else if (testNum==3) {
+                String inputFilePlain = args[1];
+                String outputFileEncrypted = args[2];
+                String sourcePrivateKeyFile = args[3];
+                String targetPublicKeyFile = args[4];
+                String tagetPrivateKeyFile = args[5];
+                
+                writeTest(inputFilePlain, outputFileEncrypted, sourcePrivateKeyFile, targetPublicKeyFile, tagetPrivateKeyFile);
             }
         } catch (Throwable t) {
             System.out.println("Usage: ");
             System.out.println("  Test 1: '1' 'inputfile_path' 'keyfile_path' ");
             System.out.println("  Test 2: '2' 'plain_inputfile_path' 'encrypted_inputfile_path' 'keyfile_path' ");           
+            System.out.println("  Test 3: '3' 'plain_inputfile_path' 'output_encrypted_path' 'source_private_keyfile_path' 'target_public_keyfile_path' 'tagret_public_keyfile_path'");           
         }
     }
     
@@ -164,6 +179,68 @@ public class HtsjdkTest {
         
         sr3.close();
         s3.close();
+    }
+
+    public static void writeTest(String inputFile,
+                                 String outputFile,
+                                 String sourcePrivateKeyFile,
+                                 String targetPublicKeyFile,
+                                 String targetPrivateKeyFile) throws FileNotFoundException, 
+                                                                    IOException, 
+                                                                    NoSuchAlgorithmException, 
+                                                                    InvalidKeySpecException, 
+                                                                    NoSuchProviderException, 
+                                                                    GeneralSecurityException, 
+                                                                    Exception {
+        
+        byte[] targetUK = loadKey(Paths.get(targetPublicKeyFile));
+        byte[] sourceRK = loadKey(Paths.get(sourcePrivateKeyFile));
+
+        
+        OutputStream fOut = Files.newOutputStream(new File(outputFile).toPath());
+        OutputStream c4ghout = new Crypt4GHOutputStream(fOut, sourceRK, targetUK);
+        
+        final SamReader reader = SamReaderFactory.makeDefault().open(new File(inputFile));
+        final SAMFileWriter outputSam = new SAMFileWriterFactory().makeBAMWriter(reader.getFileHeader(),
+                true, c4ghout);
+
+        for (final SAMRecord samRecord : reader) {
+            // Convert read name to upper case.
+            samRecord.setReadName(samRecord.getReadName().toUpperCase());
+            outputSam.addAlignment(samRecord);
+        }
+
+        outputSam.close();        
+        reader.close();
+        
+        /*
+         * (Test case - just making sure htsjdk can still read the file we just created!
+         */
+        SeekableStream s2 = new SeekableFileStream(new File(outputFile));
+
+        byte[] targetPK = loadKey(Paths.get(targetPrivateKeyFile));
+        SeekableStream s3 = new SeekableCrypt4GHStream(s2, targetPK);
+     
+        SamInputResource sir3 = SamInputResource.of(s3);
+        SamReaderFactory srf_ = SamReaderFactory.make();
+        SamReader sr3 = srf_.open(sir3);
+        
+        SAMFileHeader fileHeader3 = sr3.getFileHeader();
+        System.out.println(fileHeader3.toString());
+                
+        SAMRecordIterator iterator = sr3.iterator();
+        while (iterator.hasNext()) {
+            try {
+                SAMRecord next = iterator.next();
+                System.out.println(next.getCigar().toString());
+            } catch (Throwable th) {
+                System.out.println("**");
+            }
+        }
+        
+        sr3.close();
+        s3.close();
+        
     }
     
     private static byte[] loadKey(Path keyIn) throws FileNotFoundException, IOException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException {
