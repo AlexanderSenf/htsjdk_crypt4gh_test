@@ -8,26 +8,33 @@ package htsjdktest;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMRecordIterator;
+import htsjdk.samtools.SAMSequenceRecord;
 import htsjdk.samtools.SamInputResource;
 import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SamReaderFactory;
+import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.seekablestream.SeekableCrypt4GHStream;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
+import htsjdk.samtools.util.Crypt4GHOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import org.apache.commons.codec.binary.Base64;
 
@@ -44,6 +51,12 @@ public class HtsjdkTest {
      */
     public static void main(String[] args) throws FileNotFoundException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException, Exception {
         try {
+            // "hidden" functionality: encrypt a test file
+            if (args[0].equalsIgnoreCase("encrypt")) {
+                encrypt(args);
+                return;
+            }
+            
             // Test Number (to enable multiple tests to be run)
             int testNum = Integer.parseInt(args[0]);
             System.out.println("Running Test " + testNum);
@@ -63,7 +76,7 @@ public class HtsjdkTest {
             
             // Open files before passing them off to test functions:
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
-            SeekableStream s_index = new SeekableFileStream(new File(inputFile));
+            SeekableStream s_index = new SeekableFileStream(new File(indexFile));
             if (encrypted) {
                 byte[] pK = loadKey(Paths.get(privateKeyFile));
                 s_file = new SeekableCrypt4GHStream(s_file, pK);
@@ -145,13 +158,21 @@ public class HtsjdkTest {
                                String chr) throws IOException, Exception {
         
         SamInputResource sir3 = SamInputResource.of(s_file).index(s_index);
-        SamReaderFactory srf_ = SamReaderFactory.make();
+        SamReaderFactory srf_ = SamReaderFactory.make().validationStringency(ValidationStringency.SILENT);
         SamReader sr = srf_.open(sir3);
         
-        if (sr.getFileHeader().getSequenceDictionary().getSequence(chr) == null)
-            throw new Exception("chr20 is not in this file");
+        List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
         
-        int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr).getSequenceLength();
+        // Handle "chr20" and "20"
+        String chr_ = chr;
+        if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
+            chr_ = "20";
+            if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
+                throw new Exception("chr20 is not in this file");
+            }
+        }
+        
+        int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
         int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
         
         int[] start = new int[num], end = new int[num];
@@ -173,7 +194,7 @@ public class HtsjdkTest {
 
         long t5 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
-            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr, start[i], end[i]);
+            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_, start[i], end[i]);
             if (iterate) {
                 while (queryOverlapping.hasNext()) {
                     SAMRecord next = queryOverlapping.next();
@@ -182,7 +203,7 @@ public class HtsjdkTest {
             queryOverlapping.close();
         }
         t5 = System.currentTimeMillis() - t5;
-        System.out.println("QueryOverlapping for " + num + " queries - " + t5 + " ms");
+        System.out.println("        QueryOverlapping for " + num + " queries - " + t5 + " ms");
         
         // close readers
         sr.close();
@@ -208,6 +229,33 @@ public class HtsjdkTest {
                                SeekableStream s_index) {
         // TODO
     }
+    
+    /*
+     * Hidden functionality: encrypt a file
+     */
+    private static void encrypt(String[] args) throws IOException, 
+                                                      FileNotFoundException, 
+                                                      NoSuchAlgorithmException, 
+                                                      InvalidKeySpecException, 
+                                                      NoSuchProviderException,
+                                                      GeneralSecurityException {
+        String f_path = args[1];
+        String f_out_path = f_path + ".c4gh";
+        String rK = args[2]; // Source
+        String uK = args[3]; // Target
+        
+        byte[] targetUK = loadKey(Paths.get(uK));
+        byte[] sourceRK = loadKey(Paths.get(rK));
+
+        OutputStream fOut = Files.newOutputStream(new File(f_out_path).toPath());
+        OutputStream c4ghout = new Crypt4GHOutputStream(fOut, sourceRK, targetUK);
+        InputStream in = new FileInputStream(new File(f_path));
+        long bytes = copy(in,c4ghout);
+        c4ghout.close();
+        in.close();
+        
+    }
+    
     
     /*
      * Helper Functions
