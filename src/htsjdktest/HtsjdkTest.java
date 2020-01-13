@@ -5,6 +5,7 @@
  */
 package htsjdktest;
 
+import htsjdk.samtools.CRAMFileReader;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMRecordIterator;
@@ -13,6 +14,8 @@ import htsjdk.samtools.SamInputResource;
 import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.ValidationStringency;
+import htsjdk.samtools.cram.ref.CRAMReferenceSource;
+import htsjdk.samtools.cram.ref.ReferenceSource;
 import htsjdk.samtools.seekablestream.SeekableCrypt4GHStream;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
@@ -44,7 +47,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class HtsjdkTest {
     
-    private static final int BUF_SIZE = 0x1000; // 4K
+    private static final int BUF_SIZE = 1048576; //0x1000; // 4K
 
     /**
      * @param args the command line arguments
@@ -54,6 +57,9 @@ public class HtsjdkTest {
             // "hidden" functionality: encrypt a test file
             if (args[0].equalsIgnoreCase("encrypt")) {
                 encrypt(args);
+                return;
+            } else if (args[0].equalsIgnoreCase("bam2cram")) {
+                bam2cram(args);
                 return;
             }
             
@@ -101,8 +107,10 @@ public class HtsjdkTest {
                         test_4(s_file, s_index);
                         break;
                 case 5:
+                        test_5(s_file, s_index, "Homo_sapiens_assembly38.fasta", false, num, chr);
                         break;
                 case 6:
+                        test_5(s_file, s_index, "Homo_sapiens_assembly38.fasta", true, num, chr);
                         break;
             }
             execution_ms = System.currentTimeMillis() - execution_ms;
@@ -220,14 +228,66 @@ public class HtsjdkTest {
         long bytes = copy(in, out);
     }
 
+    // Query chr20
     private static void test_5(SeekableStream s_file,
-                               SeekableStream s_index) {
-        // TODO
-    }
+                               SeekableStream s_index,
+                               String refSourcePath,
+                               boolean iterate,
+                               int num,
+                               String chr) throws IOException, Exception {
 
-    private static void test_6(SeekableStream s_file,
-                               SeekableStream s_index) {
-        // TODO
+        File f = new File(refSourcePath);        
+        SamInputResource sir3 = SamInputResource.of(s_file).index(s_index);
+        SamReaderFactory srf_ = SamReaderFactory.make().referenceSequence(f);
+        SamReader sr = srf_.open(sir3);
+        
+        List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
+        
+        // Handle "chr20" and "20"
+        String chr_ = chr;
+        if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
+            chr_ = "20";
+            if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
+                throw new Exception("chr20 is not in this file");
+            }
+        }
+        
+        int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
+        int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
+        
+        int[] start = new int[num], end = new int[num];
+        long t3 = System.currentTimeMillis();
+        Random rand = new Random();
+        for (int i=0; i<num; i++) {
+            int iStart = 1, iEnd = 0;
+            while (iStart >= iEnd) {
+                iStart = rand.nextInt(chr_size-delta);
+                iEnd = iStart + delta;
+            }
+            start[i] = iStart;
+            end[i] = iEnd;
+        }
+        Arrays.sort(start);
+        Arrays.sort(end);
+        t3 = System.currentTimeMillis() - t3;
+        System.out.println("    --- Generating ranges: " + t3 + " (ms)");
+
+        long t5 = System.currentTimeMillis();
+        for (int i=0; i<num; i++) {
+            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_, start[i], end[i]);
+            if (iterate) {
+                while (queryOverlapping.hasNext()) {
+                    SAMRecord next = queryOverlapping.next();
+                }
+            }
+            queryOverlapping.close();
+        }
+        t5 = System.currentTimeMillis() - t5;
+        System.out.println("        QueryOverlapping for " + num + " queries - " + t5 + " ms");
+        
+        // close readers
+        sr.close();
+        
     }
     
     /*
@@ -256,6 +316,14 @@ public class HtsjdkTest {
         
     }
     
+    private static void bam2cram(String[] args) throws IOException, 
+                                                      FileNotFoundException, 
+                                                      NoSuchAlgorithmException, 
+                                                      InvalidKeySpecException, 
+                                                      NoSuchProviderException,
+                                                      GeneralSecurityException {
+        
+    }
     
     /*
      * Helper Functions

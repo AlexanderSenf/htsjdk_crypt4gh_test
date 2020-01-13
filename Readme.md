@@ -45,6 +45,37 @@ Test 4:
 Simply stream-copy the data.
 
 
+CRAM Files:
+
+To test CRAM files, the existing file must be converted into a CRAM file, which requires there to be a referencde index file to be available.
+
+Getting the reference (requires wget and gunzip): `./getcramref38.sh`
+
+Once the index is availble, the BAM file needs to be converted into a CRAM file, and indexed.
+
+Converting the file (requires samtools): `./makecram.sh`
+
+Then an encrypted version of these files should be created: `encryptcram.sh`
+
+With these file in place tests 5 & 6 can be run, which is a mirror of tests 2 & 3:
+
+Test 5:
+
+`java -jar store/HtsjdkTest.jar 5 false NA12878.cram NA12878.cram.crai`
+
+`java -jar store/HtsjdkTest.jar 5 true NA12878.c4gh.cram NA12878.c4gh.cram.crai john.sec`
+
+This test performs 1000 queries in chr20
+
+Test 6:
+
+`java -jar store/HtsjdkTest.jar 6 false NA12878.cram NA12878.cram.crai`
+
+`java -jar store/HtsjdkTest.jar 6 true NA12878.c4gh.cram NA12878.c4gh.cram.crai john.sec`
+
+This test performs 1000 queries in chr20, and then traverses all records in the result set. This is likely the most applicable test to determine the expected real-world speed.
+
+
 Additional functionality:
 
 To enable a custom set of test files, it is posible to encrypt data as well:
