@@ -5,7 +5,6 @@
  */
 package htsjdktest;
 
-import htsjdk.samtools.CRAMFileReader;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMRecord;
 import htsjdk.samtools.SAMRecordIterator;
@@ -14,32 +13,28 @@ import htsjdk.samtools.SamInputResource;
 import htsjdk.samtools.SamReader;
 import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.ValidationStringency;
-import htsjdk.samtools.cram.ref.CRAMReferenceSource;
-import htsjdk.samtools.cram.ref.ReferenceSource;
-import htsjdk.samtools.seekablestream.SeekableCrypt4GHStream;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
-import htsjdk.samtools.util.Crypt4GHOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import no.uio.ifi.crypt4gh.stream.Crypt4GHSeekableStreamInternal;
+import no.uio.ifi.crypt4gh.util.KeyUtils;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 
 /**
  *
@@ -54,15 +49,6 @@ public class HtsjdkTest {
      */
     public static void main(String[] args) throws FileNotFoundException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException, Exception {
         try {
-            // "hidden" functionality: encrypt a test file
-            if (args[0].equalsIgnoreCase("encrypt")) {
-                encrypt(args);
-                return;
-            } else if (args[0].equalsIgnoreCase("bam2cram")) {
-                bam2cram(args);
-                return;
-            }
-            
             // Test Number (to enable multiple tests to be run)
             int testNum = Integer.parseInt(args[0]);
             System.out.println("Running Test " + testNum);
@@ -84,33 +70,29 @@ public class HtsjdkTest {
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
             SeekableStream s_index = new SeekableFileStream(new File(indexFile));
             if (encrypted) {
-                byte[] pK = loadKey(Paths.get(privateKeyFile));
-                s_file = new SeekableCrypt4GHStream(s_file, pK);
-                s_index = new SeekableCrypt4GHStream(s_index, pK);
+                PrivateKey pK= KeyUtils.getInstance().readPrivateKey(new File(privateKeyFile), "".toCharArray());
+                s_file = new Crypt4GHSeekableStreamInternal(s_file, pK);
+                s_index = new Crypt4GHSeekableStreamInternal(s_index, pK);
             }
             System.out.println("\tFile opend as SeekableStreams.");
             
             int num = 1000;
-            String chr = "chr20";
             long execution_ms = System.currentTimeMillis();
             switch(testNum) {
                 case 1:
-                        test_1(s_file, s_index);
+                        privateKeyFile = args[4];
+                        PrivateKey pK= KeyUtils.getInstance().readPrivateKey(new File(privateKeyFile), "".toCharArray());
+                        s_index = new Crypt4GHSeekableStreamInternal(s_index, pK);
+                        test_0(s_file, s_index);
                         break;
                 case 2:
-                        test_2(s_file, s_index, false, num, chr);
+                        test_1(s_file, s_index);
                         break;
                 case 3:
-                        test_2(s_file, s_index, true, num, chr);
+                        test_2(s_file, s_index, true, num);
                         break;
                 case 4:
                         test_4(s_file, s_index);
-                        break;
-                case 5:
-                        test_5(s_file, s_index, "Homo_sapiens_assembly38.fasta", false, num, chr);
-                        break;
-                case 6:
-                        test_5(s_file, s_index, "Homo_sapiens_assembly38.fasta", true, num, chr);
                         break;
             }
             execution_ms = System.currentTimeMillis() - execution_ms;
@@ -125,12 +107,41 @@ public class HtsjdkTest {
             System.out.println("  'true' indicates an encrypted input file; in this case a key file is required.");
             System.out.println("  ");           
             System.out.println("  Available Tests: ");
-            System.out.println("        1: Iterate through all SAMRecords sequentially");
-            System.out.println("        2: Query chr20 [1000 times]");
+            System.out.println("        1: Open unencrypted + encrypted files; 5000 seek + compare reads");
+            System.out.println("        2: Iterate through all SAMRecords sequentially");
             System.out.println("        3: Query chr20 & iterate through all results [1000 times]");
             System.out.println("        4: Simply stream though the file, sequentially");
-            System.out.println("        5: [TODO]");
-            System.out.println("        6: [TODO]");
+        }
+    }
+    
+    // Test 0: Simply read stream
+    private static void test_0(SeekableStream s_file,
+                               SeekableStream s_index) throws IOException {
+        
+        long length = s_file.length() - 50;
+        long length_ = s_index.length();
+        
+        byte[] x = new byte[50], x_ = new byte[50];
+        
+        Random r = new Random();
+        for (int i=0; i<5000; i++) {
+            
+            long pos = Math.abs(r.nextLong()) % length;
+            
+            s_file.seek(pos);
+            s_index.seek(pos);
+            
+            int read = s_file.read(x);
+            int read_ = s_index.read(x_);
+            
+            if (!(Arrays.equals(x, x_))) {
+                System.out.println("ERROR! at pos " + pos);
+                String encodeHexString = Hex.encodeHexString(x);
+                String encodeHexString_ = Hex.encodeHexString(x_);
+                System.out.println("Plain " + read + ": " + encodeHexString);
+                System.out.println("Encry " + read_ + ": " + encodeHexString_);
+            }
+            
         }
     }
     
@@ -162,31 +173,28 @@ public class HtsjdkTest {
     private static void test_2(SeekableStream s_file,
                                SeekableStream s_index,
                                boolean iterate,
-                               int num,
-                               String chr) throws IOException, Exception {
+                               int num) throws IOException, Exception {
         
         SamInputResource sir3 = SamInputResource.of(s_file).index(s_index);
         SamReaderFactory srf_ = SamReaderFactory.make().validationStringency(ValidationStringency.SILENT);
         SamReader sr = srf_.open(sir3);
         
         List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
-        
-        // Handle "chr20" and "20"
-        String chr_ = chr;
-        if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
-            chr_ = "20";
-            if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
-                throw new Exception("chr20 is not in this file");
-            }
-        }
-        
-        int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
-        int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
+        SAMSequenceRecord[] entries = new SAMSequenceRecord[sequences.size()];
+        for (int y=0; y<sequences.size(); y++)
+            entries[y] = sequences.get(y);
         
         int[] start = new int[num], end = new int[num];
+        String chr_[] = new String[num];
         long t3 = System.currentTimeMillis();
         Random rand = new Random();
         for (int i=0; i<num; i++) {
+            int iEntry = rand.nextInt(entries.length);
+             chr_[i]= entries[iEntry].getSequenceName();
+            
+            int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_[i]).getSequenceLength();
+            int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
+        
             int iStart = 1, iEnd = 0;
             while (iStart >= iEnd) {
                 iStart = rand.nextInt(chr_size-delta);
@@ -202,7 +210,7 @@ public class HtsjdkTest {
 
         long t5 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
-            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_, start[i], end[i]);
+            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_[i], start[i], end[i]);
             if (iterate) {
                 while (queryOverlapping.hasNext()) {
                     SAMRecord next = queryOverlapping.next();
@@ -214,8 +222,7 @@ public class HtsjdkTest {
         System.out.println("        QueryOverlapping for " + num + " queries - " + t5 + " ms");
         
         // close readers
-        sr.close();
-        
+        sr.close();        
     }
     
     // Simply stream, beginning to end
@@ -227,104 +234,7 @@ public class HtsjdkTest {
 
         long bytes = copy(in, out);
     }
-
-    // Query chr20
-    private static void test_5(SeekableStream s_file,
-                               SeekableStream s_index,
-                               String refSourcePath,
-                               boolean iterate,
-                               int num,
-                               String chr) throws IOException, Exception {
-
-        File f = new File(refSourcePath);        
-        SamInputResource sir3 = SamInputResource.of(s_file).index(s_index);
-        SamReaderFactory srf_ = SamReaderFactory.make().referenceSequence(f);
-        SamReader sr = srf_.open(sir3);
         
-        List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
-        
-        // Handle "chr20" and "20"
-        String chr_ = chr;
-        if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
-            chr_ = "20";
-            if (sr.getFileHeader().getSequenceDictionary().getSequence(chr_) == null) {
-                throw new Exception("chr20 is not in this file");
-            }
-        }
-        
-        int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
-        int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
-        
-        int[] start = new int[num], end = new int[num];
-        long t3 = System.currentTimeMillis();
-        Random rand = new Random();
-        for (int i=0; i<num; i++) {
-            int iStart = 1, iEnd = 0;
-            while (iStart >= iEnd) {
-                iStart = rand.nextInt(chr_size-delta);
-                iEnd = iStart + delta;
-            }
-            start[i] = iStart;
-            end[i] = iEnd;
-        }
-        Arrays.sort(start);
-        Arrays.sort(end);
-        t3 = System.currentTimeMillis() - t3;
-        System.out.println("    --- Generating ranges: " + t3 + " (ms)");
-
-        long t5 = System.currentTimeMillis();
-        for (int i=0; i<num; i++) {
-            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_, start[i], end[i]);
-            if (iterate) {
-                while (queryOverlapping.hasNext()) {
-                    SAMRecord next = queryOverlapping.next();
-                }
-            }
-            queryOverlapping.close();
-        }
-        t5 = System.currentTimeMillis() - t5;
-        System.out.println("        QueryOverlapping for " + num + " queries - " + t5 + " ms");
-        
-        // close readers
-        sr.close();
-        
-    }
-    
-    /*
-     * Hidden functionality: encrypt a file
-     */
-    private static void encrypt(String[] args) throws IOException, 
-                                                      FileNotFoundException, 
-                                                      NoSuchAlgorithmException, 
-                                                      InvalidKeySpecException, 
-                                                      NoSuchProviderException,
-                                                      GeneralSecurityException {
-        String f_path = args[1];
-        String f_out_path = f_path + ".c4gh";
-        String rK = args[2]; // Source
-        String uK = args[3]; // Target
-        
-        byte[] targetUK = loadKey(Paths.get(uK));
-        byte[] sourceRK = loadKey(Paths.get(rK));
-
-        OutputStream fOut = Files.newOutputStream(new File(f_out_path).toPath());
-        OutputStream c4ghout = new Crypt4GHOutputStream(fOut, sourceRK, targetUK);
-        InputStream in = new FileInputStream(new File(f_path));
-        long bytes = copy(in,c4ghout);
-        c4ghout.close();
-        in.close();
-        
-    }
-    
-    private static void bam2cram(String[] args) throws IOException, 
-                                                      FileNotFoundException, 
-                                                      NoSuchAlgorithmException, 
-                                                      InvalidKeySpecException, 
-                                                      NoSuchProviderException,
-                                                      GeneralSecurityException {
-        
-    }
-    
     /*
      * Helper Functions
      */
