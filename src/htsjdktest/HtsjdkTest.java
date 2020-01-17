@@ -119,7 +119,9 @@ public class HtsjdkTest {
                                SeekableStream s_index) throws IOException {
         
         long length = s_file.length() - 50;
-        long length_ = s_index.length();
+        long length_ = s_index.length() - 50;
+        System.out.println(length);
+        System.out.println(length_);
         
         byte[] x = new byte[50], x_ = new byte[50];
         
@@ -160,7 +162,7 @@ public class HtsjdkTest {
         while (iterator.hasNext()) {
             try {
                 SAMRecord next = iterator.next();
-                //System.out.println(next.getCigar().toString());
+                //System.out.println(next.getAlignmentStart() + ": " + next.getCigar().toString());
             } catch (Throwable th) {
                 //System.out.println("**");
             }
