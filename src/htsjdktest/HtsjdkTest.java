@@ -23,6 +23,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -33,8 +34,14 @@ import java.util.List;
 import java.util.Random;
 import no.uio.ifi.crypt4gh.stream.Crypt4GHSeekableStreamInternal;
 import no.uio.ifi.crypt4gh.util.KeyUtils;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FileUtils;
 
 /**
  *
@@ -49,28 +56,49 @@ public class HtsjdkTest {
      */
     public static void main(String[] args) throws FileNotFoundException, IOException, NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException, Exception {
         try {
+            // Specify Command line options
+            Options options = new Options();
+            options.addOption(new Option("t", "test number", true, "Number of test to run"));
+            options.addOption("e", false, "encrypted input if specified");
+            options.addOption(new Option("if", "input file", true, "Input File"));
+            options.addOption(new Option("idx", "index file", true, "Index File"));
+            options.addOption(new Option("kf", "key file", true, "Private Key File"));
+            options.addOption(new Option("kp", "key password", true, "Private Key Password"));
+
+            // Parse options
+            CommandLineParser parser = new DefaultParser();
+            CommandLine line = parser.parse(options, args);
+            if (line.getOptions().length == 0) {
+                throw (new Exception()); // Prints help
+            }
+            
             // Test Number (to enable multiple tests to be run)
-            int testNum = Integer.parseInt(args[0]);
+            int testNum = Integer.parseInt( line.getOptionValue("t") );
             System.out.println("Running Test " + testNum);
 
-            boolean encrypted = args[1].equalsIgnoreCase("true");
+            boolean encrypted = line.hasOption("e");
             
             // Get Files
-            String inputFile = args[2];
+            String inputFile = line.getOptionValue("if");
             System.out.println("\tInput File: " + inputFile);
-            String indexFile = args[3];
+            String indexFile = line.getOptionValue("idx");
             System.out.println("\tIndex File: " + indexFile);
             String privateKeyFile = null;
+            String privateKeyPassword = null;
             if (encrypted) {
-                privateKeyFile = args[4];
+                privateKeyFile = line.getOptionValue("kf");
                 System.out.println("\tKey File: " + privateKeyFile);
+                if (line.hasOption("kp"))
+                    privateKeyPassword = line.getOptionValue("kp");
             }
             
             // Open files before passing them off to test functions:
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
             SeekableStream s_index = new SeekableFileStream(new File(indexFile));
             if (encrypted) {
-                PrivateKey pK= KeyUtils.getInstance().readPrivateKey(new File(privateKeyFile), "".toCharArray());
+                String keyLines = FileUtils.readFileToString(new File(privateKeyFile), Charset.defaultCharset());
+                byte[] decodedKey = KeyUtils.getInstance().decodeKey(keyLines);
+                PrivateKey pK= KeyUtils.getInstance().readCrypt4GHPrivateKey(decodedKey, privateKeyPassword.toCharArray());
                 s_file = new Crypt4GHSeekableStreamInternal(s_file, pK);
                 s_index = new Crypt4GHSeekableStreamInternal(s_index, pK);
             }
@@ -80,9 +108,6 @@ public class HtsjdkTest {
             long execution_ms = System.currentTimeMillis();
             switch(testNum) {
                 case 1:
-                        privateKeyFile = args[4];
-                        PrivateKey pK= KeyUtils.getInstance().readPrivateKey(new File(privateKeyFile), "".toCharArray());
-                        s_index = new Crypt4GHSeekableStreamInternal(s_index, pK);
                         test_0(s_file, s_index);
                         break;
                 case 2:
@@ -102,7 +127,7 @@ public class HtsjdkTest {
             System.out.println("Error: " + t.toString());
             System.out.println(" ");
             System.out.println("Usage: ");
-            System.out.println("  Test 'n': 'n' 'true' 'inputfile_path' 'indexfile_path' 'keyfile_path'");
+            System.out.println("  Test 'n': 'n' 'true' 'inputfile_path' 'indexfile_path' 'keyfile_path' 'keyfile passsword'");
             System.out.println("  Test 'n': 'n' 'false' 'inputfile_path' 'indexfile_path'");
             System.out.println("  'true' indicates an encrypted input file; in this case a key file is required.");
             System.out.println("  ");           
