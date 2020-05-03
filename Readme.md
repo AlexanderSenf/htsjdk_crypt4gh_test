@@ -7,39 +7,32 @@ Then cd htsjdk_crypt4gh_test
 Build: ant jar copy-dependencies package-for-store
 
 The test file is: 6929_4#44.bam which can be obtained from ENA: https://www.ebi.ac.uk/ena/data/view/ERR065185
+Then create the index file, with samtools: `samtools index 6929_4#44.bam`
 
-[Then create the index file, with samtools: `samtools index 6929_4#44.bam`]
-[Then create the encrypted versions of these files: `./encrypt.sh`]
+Then create the encrypted versions of these files: `./encrypt.sh`
+Keys have been created using `java -jar lib/crypt4gh-2.3.0-shaded.jar -kf Crypt4GH -g alice` (and `[...] -g bob`) with password: `password`.
 
-There are 4 tests included; each test can be run on a plain ('false') or on a GA4GH-encrypted file ('true')
+There are 4 tests included; each test can be run on a plain or on a GA4GH-encrypted file
 
-java -jar store/HtsjdkTest.jar {Test Num} {Encrypted} {BAM/CRAM File} {BAM/CRAM Index File} {Private Key File}
+java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM/CRAM File} -idx {BAM/CRAM Index File} -kf {Private Key File} -kp {password}
 
 Test 1:
 
-`java -jar store/HtsjdkTest.jar 1 false 6929_4#44.bam 6929_4#44.bam.enc bob.sec.pem`
+`java -jar store/HtsjdkTest.jar -t 1 -if 6929_4#44.bam 6929_4#44.bam.enc bob.sec.pem`
 
 Test 2:
 
-`java -jar store/HtsjdkTest.jar 2 false 6929_4#44.bam 6929_4#44.bam.bai`
+`java -jar store/HtsjdkTest.jar -t 2 -if 6929_4#44.bam -idx 6929_4#44.bam.bai`
 
-`java -jar store/HtsjdkTest.jar 2 true 6929_4#44.bam.enc 6929_4#44.bam.enc bob.sec.pem`
+`java -jar store/HtsjdkTest.jar -t 2 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password`
 
 This test simply opens the file and iterated through all read record sequentially.
 
 Test 3:
 
-`java -jar store/HtsjdkTest.jar 3 false 6929_4#44.bam 6929_4#44.bam.bai`
+`java -jar store/HtsjdkTest.jar -t 3 -if 6929_4#44.bam -idx 6929_4#44.bam.bai`
 
-`java -jar store/HtsjdkTest.jar 3 true 6929_4#44.bam.enc 6929_4#44.bam.enc bob.sec.pem`
+`java -jar store/HtsjdkTest.jar -t 3 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password`
 
 This test performs 1000 queries ove all chromosomes, and then traverses all records in the result set. This is likely the most applicable test to determine the expected real-world speed.
-
-Test 4: [TO FIX - SKIP FOR NOW]
-
-`java -jar store/HtsjdkTest.jar 4 false NA12878.bam NA12878.bam.bai`
-
-`java -jar store/HtsjdkTest.jar 4 true NA12878.bam.c4gh NA12878.bam.bai.c4gh john.sec`
-
-Simply stream-copy the data.
 
