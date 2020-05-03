@@ -9,8 +9,9 @@ Build: ant jar copy-dependencies package-for-store
 The test file is: 6929_4#44.bam which can be obtained from ENA: https://www.ebi.ac.uk/ena/data/view/ERR065185
 Then create the index file, with samtools: `samtools index 6929_4#44.bam`
 
-Then create the encrypted versions of these files: `./encrypt.sh`
-Keys have been created using `java -jar lib/crypt4gh-2.3.0-shaded.jar -kf Crypt4GH -g alice` (and `[...] -g bob`) with password: `password`.
+Then create the encrypted versions of these files: `./encrypt.sh`.
+
+(Keys have been created using `java -jar lib/crypt4gh-2.3.0-shaded.jar -kf Crypt4GH -g alice` (and `[...] -g bob`) with password: `password`)
 
 There are 4 tests included; each test can be run on a plain or on a GA4GH-encrypted file
 
