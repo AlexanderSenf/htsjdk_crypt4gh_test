@@ -18,8 +18,7 @@ java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM/CRAM File} -idx {BAM/
 
 Test 1:
 
-[Needs help]]
-`java -jar store/HtsjdkTest.jar -t 1 -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password`
+`java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password`
 
 Test 2:
 
