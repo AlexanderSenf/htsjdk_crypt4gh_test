@@ -14,7 +14,7 @@ Keys have been created using `java -jar lib/crypt4gh-2.3.0-shaded.jar -kf Crypt4
 
 There are 4 tests included; each test can be run on a plain or on a GA4GH-encrypted file
 
-java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM/CRAM File} -idx {BAM/CRAM Index File} -kf {Private Key File} -kp {password}
+`java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM/CRAM File} -idx {BAM/CRAM Index File} -kf {Private Key File} -kp {password}`
 
 Test 1:
 
