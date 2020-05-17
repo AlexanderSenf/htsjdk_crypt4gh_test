@@ -15,6 +15,15 @@ import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
+import htsjdk.samtools.util.IOUtil;
+import static htsjdk.samtools.util.IOUtil.GZIP_HEADER_READ_LENGTH;
+import htsjdk.variant.bcf2.BCF2Codec;
+import htsjdk.variant.bcf2.BCFVersion;
+import htsjdk.variant.variantcontext.VariantContext;
+import htsjdk.variant.vcf.VCFFileReader;
+import htsjdk.variant.vcf.VCFIterator;
+import htsjdk.variant.vcf.VCFIteratorBuilder;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -32,6 +41,8 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import no.uio.ifi.crypt4gh.stream.Crypt4GHSeekableStreamInternal;
 import no.uio.ifi.crypt4gh.util.KeyUtils;
 import org.apache.commons.cli.CommandLine;
@@ -81,7 +92,7 @@ public class HtsjdkTest {
             // Get Files
             String inputFile = line.getOptionValue("if");
             System.out.println("\tInput File: " + inputFile);
-            String indexFile = line.getOptionValue("idx");
+            String indexFile = (line.hasOption("idx"))?line.getOptionValue("idx"):null;
             System.out.println("\tIndex File: " + indexFile);
             String privateKeyFile = null;
             String privateKeyPassword = null;
@@ -94,14 +105,14 @@ public class HtsjdkTest {
             
             // Open files before passing them off to test functions:
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
-            SeekableStream s_index = new SeekableFileStream(new File(indexFile));
+            SeekableStream s_index = (indexFile!=null)?new SeekableFileStream(new File(indexFile)):null;
             if (encrypted) {
                 String keyLines = FileUtils.readFileToString(new File(privateKeyFile), Charset.defaultCharset());
                 byte[] decodedKey = KeyUtils.getInstance().decodeKey(keyLines);
                 PrivateKey pK= KeyUtils.getInstance().readCrypt4GHPrivateKey(decodedKey, privateKeyPassword.toCharArray());
-                if (testNum > 1)
+                if (testNum > 1 && s_index == null)
                     s_file = new Crypt4GHSeekableStreamInternal(s_file, pK);
-                s_index = new Crypt4GHSeekableStreamInternal(s_index, pK);
+                s_index = (indexFile!=null)?new Crypt4GHSeekableStreamInternal(s_index, pK):null;
             }
             System.out.println("\tFile opend as SeekableStreams.");
             
@@ -118,7 +129,13 @@ public class HtsjdkTest {
                         test_2(s_file, s_index, true, num);
                         break;
                 case 4:
-                        test_4(s_file, s_index);
+                        test_4(s_file);
+                        break;
+                case 5:
+                        test_5(s_file, s_index);
+                        break;
+                case 6:
+                        test_6(s_file);
                         break;
             }
             execution_ms = System.currentTimeMillis() - execution_ms;
@@ -135,8 +152,10 @@ public class HtsjdkTest {
             System.out.println("  Available Tests: ");
             System.out.println("        1: Open unencrypted + encrypted files; 5000 seek + compare reads");
             System.out.println("        2: Iterate through all SAMRecords sequentially");
-            System.out.println("        3: Query chr20 & iterate through all results [1000 times]");
+            System.out.println("        3: Query whole file & iterate through all results [1000 times]");
             System.out.println("        4: Simply stream though the file, sequentially");
+            //System.out.println("        5: Calculate VCF Stats");
+            System.out.println("        6: Iterate through VCF File");
         }
     }
     
@@ -148,7 +167,7 @@ public class HtsjdkTest {
         long length_ = s_index.length() - 50;
         System.out.println(length);
         System.out.println(length_);
-        
+
         byte[] x = new byte[50], x_ = new byte[50];
         
         Random r = new Random();
@@ -197,7 +216,7 @@ public class HtsjdkTest {
         sr.close();        
     }
     
-    // Query chr20
+    // Query all Chr
     private static void test_2(SeekableStream s_file,
                                SeekableStream s_index,
                                boolean iterate,
@@ -254,15 +273,41 @@ public class HtsjdkTest {
     }
     
     // Simply stream, beginning to end
-    private static void test_4(SeekableStream s_file,
+    private static void test_4(SeekableStream s_file) throws IOException {
+
+        InputStream in = s_file;
+        if (IOUtil.isGZIPInputStream(in))
+            in = new GZIPInputStream(in);
+        OutputStream out = OutputStream.nullOutputStream();
+
+        long bytes = copy(in, out);
+        System.out.println("Bytes copies: " + bytes);
+    }
+
+    // VCF Stats
+    private static void test_5(SeekableStream s_file,
                                SeekableStream s_index) throws IOException {
 
+        VCFFileReader r=new VCFFileReader(new File("your.vcf") );
         InputStream in = s_file;
         OutputStream out = new ByteArrayOutputStream();
 
         long bytes = copy(in, out);
     }
+
+    // VCF Iterate
+    private static void test_6(SeekableStream s_file) throws IOException {
+
+        InputStream in = s_file;
+        VCFIterator v_iter = new VCFIteratorBuilder().open(in);
         
+        while (v_iter.hasNext()) {
+            VariantContext next = v_iter.next();
+            boolean emptyID = next.emptyID();
+        }
+        
+    }
+
     /*
      * Helper Functions
      */
