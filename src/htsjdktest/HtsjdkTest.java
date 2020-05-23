@@ -105,9 +105,11 @@ public class HtsjdkTest {
                 String keyLines = FileUtils.readFileToString(new File(privateKeyFile), Charset.defaultCharset());
                 byte[] decodedKey = KeyUtils.getInstance().decodeKey(keyLines);
                 PrivateKey pK= KeyUtils.getInstance().readCrypt4GHPrivateKey(decodedKey, privateKeyPassword.toCharArray());
-                if (testNum > 1 && s_index == null)
+                //if (testNum > 1 && s_index == null)
+                if (testNum > 1)
                     s_file = new Crypt4GHSeekableStreamInternal(s_file, pK);
-                s_index = (indexFile!=null)?new Crypt4GHSeekableStreamInternal(s_index, pK):null;
+                if (testNum < 5)
+                    s_index = (indexFile!=null)?new Crypt4GHSeekableStreamInternal(s_index, pK):null;
             }
             System.out.println("\tFile opend as SeekableStreams.");
             
