@@ -48,7 +48,7 @@ Test 5: (VCF)
 
 `java -jar store/HtsjdkTest.jar -t 5 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password`
 
-This is an analogy to test 3, but for VCF files: This test performs 1000 queries ove all chromosomes, and then traverses all records in the result set.
+This is an analogy to test 3, but for VCF files: This test performs 1000 queries over all chromosomes, and then traverses all records in the result set.
 
 (This test uses an unencrypted index file, due to limitation in the Tabix reader)
 
