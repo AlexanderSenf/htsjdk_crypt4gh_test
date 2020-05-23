@@ -135,4 +135,4 @@ Running Test 6
 	Test 6 completed in. 112375 ms.
 ```
 
-The results show BAM processing slightly slower in enencryoted mode, while VCF file processinf is slightly faster using Crypt4GH files.
+The results show BAM processing slightly slower in encrypted mode, while VCF file processing is slightly faster using Crypt4GH files.
