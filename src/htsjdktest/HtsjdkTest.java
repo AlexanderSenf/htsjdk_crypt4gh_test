@@ -16,16 +16,11 @@ import htsjdk.samtools.ValidationStringency;
 import htsjdk.samtools.seekablestream.SeekableFileStream;
 import htsjdk.samtools.seekablestream.SeekableStream;
 import htsjdk.samtools.util.IOUtil;
-import static htsjdk.samtools.util.IOUtil.GZIP_HEADER_READ_LENGTH;
-import htsjdk.variant.bcf2.BCF2Codec;
-import htsjdk.variant.bcf2.BCFVersion;
+import htsjdk.tribble.readers.TabixReader;
 import htsjdk.variant.variantcontext.VariantContext;
-import htsjdk.variant.vcf.VCFFileReader;
 import htsjdk.variant.vcf.VCFIterator;
 import htsjdk.variant.vcf.VCFIteratorBuilder;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -41,8 +36,8 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 import no.uio.ifi.crypt4gh.stream.Crypt4GHSeekableStreamInternal;
 import no.uio.ifi.crypt4gh.util.KeyUtils;
 import org.apache.commons.cli.CommandLine;
@@ -132,7 +127,7 @@ public class HtsjdkTest {
                         test_4(s_file);
                         break;
                 case 5:
-                        test_5(s_file, s_index);
+                        test_5(inputFile, s_file, s_index, true, num);
                         break;
                 case 6:
                         test_6(s_file);
@@ -152,9 +147,9 @@ public class HtsjdkTest {
             System.out.println("  Available Tests: ");
             System.out.println("        1: Open unencrypted + encrypted files; 5000 seek + compare reads");
             System.out.println("        2: Iterate through all SAMRecords sequentially");
-            System.out.println("        3: Query whole file & iterate through all results [1000 times]");
+            System.out.println("        3: Query whole BAM file & iterate through all results [1000 times]");
             System.out.println("        4: Simply stream though the file, sequentially");
-            //System.out.println("        5: Calculate VCF Stats");
+            System.out.println("        5: Query whole VCF file & iterate through all results [1000 times]");
             System.out.println("        6: Iterate through VCF File");
         }
     }
@@ -285,14 +280,61 @@ public class HtsjdkTest {
     }
 
     // VCF Stats
-    private static void test_5(SeekableStream s_file,
-                               SeekableStream s_index) throws IOException {
+    private static void test_5(String filePath,
+                               SeekableStream s_file,
+                               SeekableStream s_index,
+                               boolean iterate,
+                               int num) throws IOException {
+        String indexPath = filePath.endsWith(".enc")?
+                filePath.substring(0, filePath.length()-4) + ".tbi":
+                filePath + ".tbi";
+        
+        TabixReader tabixReader = new TabixReader(filePath, indexPath, s_file);
+        Set<String> chromosomes = tabixReader.getChromosomes();
+        Object[] entries = chromosomes.toArray();
+        int[] start = new int[num], end = new int[num];
+        String chr_[] = new String[num];
+        long t5 = System.currentTimeMillis();
+        Random rand = new Random();
+        for (int i=0; i<num; i++) {
+            int iEntry = rand.nextInt(entries.length);
+            chr_[i]= (String) entries[iEntry];
+            
+            int[] parseReg = tabixReader.parseReg(chr_[i]);
 
-        VCFFileReader r=new VCFFileReader(new File("your.vcf") );
-        InputStream in = s_file;
-        OutputStream out = new ByteArrayOutputStream();
+            int chr_size = parseReg[2];
+            int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
+            int iStart = 1, iEnd = 0;
+            while (iStart >= iEnd) {
+                iStart = rand.nextInt(chr_size-delta);
+                iEnd = iStart + delta;
+            }
+            start[i] = iStart;
+            end[i] = iEnd;
+        }
+        Arrays.sort(start);
+        Arrays.sort(end);
+        t5 = System.currentTimeMillis() - t5;
+        System.out.println("    --- Generating ranges: " + t5 + " (ms)");
+        
+        long t7 = System.currentTimeMillis();
+        for (int i=0; i<num; i++) {
+            TabixReader.Iterator query = tabixReader.query(chr_[i], start[i], end[i]);
+            
+            if (iterate) {
+                String next = query.next();
+                while (next!=null) {
 
-        long bytes = copy(in, out);
+                    next = query.next();
+                }
+            }
+        }
+        t7 = System.currentTimeMillis() - t7;
+        System.out.println("        Tabix Query for " + num + " queries - " + t7 + " ms");
+        
+        
+        
+        tabixReader.close();
     }
 
     // VCF Iterate
@@ -306,6 +348,7 @@ public class HtsjdkTest {
             boolean emptyID = next.emptyID();
         }
         
+        v_iter.close();
     }
 
     /*
