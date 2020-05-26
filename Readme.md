@@ -16,13 +16,11 @@ This is a Java program to test the addition of Crypt4GH to htsjdk. This addition
 
 (Keys have been created using `java -jar lib/crypt4gh-2.3.0-shaded.jar -kf Crypt4GH -g alice` (and `[...] -g bob`) with password: `password`)
 
-Then encrypt the file: `java -jar lib/crypt4gh-2.3.0-shaded.jar -e ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz -sk alice.sec.pem -pk bob.pub.pem` (part of encrypt.sh)
-
 There is one test that simply compares the unencrypted and encrypted files by randomly seeking to byte posititons and comparing the bytes read from each stream. There are 2 tests included for the BAM file, and 2 for the VCF file; each test can be run on a plain or on a GA4GH-encrypted file
 
 `java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM File} -idx {BAM Index File} -kf {Private Key File} -kp {password}`
 
-Test 1: (generic; randomly access sections of the plain and encrypted file, ensure the data retrieved is identical)
+Test 1: (generic; randomly access sections of the plain and encrypted file, ensure the data retrieved is identical. The parameter of the index file is used for the encrypted version of the file specufued with `-if`)
 
 `java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password`
 
@@ -64,7 +62,7 @@ This test is ananalogy to test 2, but for VCF files: This test simply opens the 
 Execution Log (Ubuntu 18 VM, OpenJDK 11, 4 3.5 GHz Xeon CPU cores, 4 GB RAM, SSD)
 
 ```
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
 Running Test 1
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.enc
@@ -73,20 +71,20 @@ Running Test 1
 1003733655
 1003733655
 	Test 1 completed in. 9662 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
 Running Test 2
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.bai
 	File opend as SeekableStreams.
 	Test 2 completed in. 28512 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
 Running Test 2
 	Input File: 6929_4#44.bam.enc
 	Index File: 6929_4#44.bam.enc
 	Key File: bob.sec.pem
 	File opend as SeekableStreams.
 	Test 2 completed in. 35633 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
 Running Test 3
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.bai
@@ -94,7 +92,7 @@ Running Test 3
     --- Generating ranges: 7 (ms)
         QueryOverlapping for 1000 queries - 81131 ms
 	Test 3 completed in. 81268 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.bai.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.bai.enc -kf bob.sec.pem -kp password
 Running Test 3
 	Input File: 6929_4#44.bam.enc
 	Index File: 6929_4#44.bam.bai.enc
@@ -103,7 +101,7 @@ Running Test 3
     --- Generating ranges: 3 (ms)
         QueryOverlapping for 1000 queries - 117160 ms
 	Test 3 completed in. 117312 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 Running Test 5
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 	Index File: null
@@ -111,7 +109,7 @@ Running Test 5
     --- Generating ranges: 2 (ms)
         Tabix Query for 1000 queries - 266873 ms
 	Test 5 completed in. 266954 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
 Running Test 5
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc
 	Index File: null
@@ -120,13 +118,13 @@ Running Test 5
     --- Generating ranges: 1 (ms)
         Tabix Query for 1000 queries - 241682 ms
 	Test 5 completed in. 241743 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 Running Test 6
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 	Index File: null
 	File opend as SeekableStreams.
 	Test 6 completed in. 113771 ms.
-asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
 Running Test 6
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc
 	Index File: null
