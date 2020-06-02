@@ -9,7 +9,7 @@ This is a Java program to test the addition of Crypt4GH to htsjdk. This addition
 * The BAM test file is: 6929_4#44.bam which can be obtained from ENA: https://www.ebi.ac.uk/ena/data/view/ERR065185
 * Then create the index file, with samtools: `samtools index 6929_4#44.bam`
 
-* The VCF test file is `ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20130502/ALL.chr3.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz`
+* The VCF test file is `ftp://ftp-trace.ncbi.nih.gov/1000genomes/ftp/release/20130502/ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz`
 * Then create the index file, with tabix: `tabix -p vcf ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz`
 
 * Then create the encrypted versions of these files: `./encrypt.sh`. (The passwords are: `password`)
