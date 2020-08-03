@@ -33,7 +33,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -70,6 +72,7 @@ public class HtsjdkTest {
             options.addOption(new Option("idx", "index file", true, "Index File"));
             options.addOption(new Option("kf", "key file", true, "Private Key File"));
             options.addOption(new Option("kp", "key password", true, "Private Key Password"));
+            options.addOption(new Option("bfn", "BED file name", true, "BED ranges File name"));
 
             // Parse options
             CommandLineParser parser = new DefaultParser();
@@ -97,6 +100,7 @@ public class HtsjdkTest {
                 if (line.hasOption("kp"))
                     privateKeyPassword = line.getOptionValue("kp");
             }
+            
             
             // Open files before passing them off to test functions:
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
@@ -136,7 +140,7 @@ public class HtsjdkTest {
                         break;
             }
             execution_ms = System.currentTimeMillis() - execution_ms;
-            System.out.println("\tTest " + testNum + " completed in. " + execution_ms + " ms.");
+            System.out.println("\tTest " + testNum + " completed in: " + execution_ms + " ms.");
 
         } catch (Throwable t) {
             System.out.println("Error: " + t.toString());
@@ -228,15 +232,14 @@ public class HtsjdkTest {
         for (int y=0; y<sequences.size(); y++)
             entries[y] = sequences.get(y);
         
-        int[] start = new int[num], end = new int[num];
-        String chr_[] = new String[num];
+        List<Entry> searchIntervals = new ArrayList<Entry>();
         long t3 = System.currentTimeMillis();
         Random rand = new Random();
         for (int i=0; i<num; i++) {
             int iEntry = rand.nextInt(entries.length);
-             chr_[i]= entries[iEntry].getSequenceName();
+             String chr_= entries[iEntry].getSequenceName();
             
-            int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_[i]).getSequenceLength();
+            int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
             int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
         
             int iStart = 1, iEnd = 0;
@@ -244,17 +247,17 @@ public class HtsjdkTest {
                 iStart = rand.nextInt(chr_size-delta);
                 iEnd = iStart + delta;
             }
-            start[i] = iStart;
-            end[i] = iEnd;
+            
+            searchIntervals.add(new Entry(chr_, iStart, iEnd));
         }
-        Arrays.sort(start);
-        Arrays.sort(end);
+        Collections.sort(searchIntervals);
         t3 = System.currentTimeMillis() - t3;
         System.out.println("    --- Generating ranges: " + t3 + " (ms)");
 
         long t5 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
-            SAMRecordIterator queryOverlapping = sr.queryOverlapping(chr_[i], start[i], end[i]);
+            Entry e = searchIntervals.get(i);
+            SAMRecordIterator queryOverlapping = sr.queryOverlapping(e.getChromosomeName(), e.getStart(), e.getEnd());
             if (iterate) {
                 while (queryOverlapping.hasNext()) {
                     SAMRecord next = queryOverlapping.next();
@@ -294,34 +297,32 @@ public class HtsjdkTest {
         TabixReader tabixReader = new TabixReader(filePath, indexPath, s_file);
         Set<String> chromosomes = tabixReader.getChromosomes();
         Object[] entries = chromosomes.toArray();
-        int[] start = new int[num], end = new int[num];
-        String chr_[] = new String[num];
+        List<Entry> searchIntervals = new ArrayList<Entry>();
         long t5 = System.currentTimeMillis();
         Random rand = new Random();
         for (int i=0; i<num; i++) {
             int iEntry = rand.nextInt(entries.length);
-            chr_[i]= (String) entries[iEntry];
+            String chr_= (String) entries[iEntry];
             
-            int[] parseReg = tabixReader.parseReg(chr_[i]);
+            int[] parseReg = tabixReader.parseReg(chr_);
 
             int chr_size = parseReg[2];
-            int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
+            int delta = (chr_size/10)>100000?100000:(chr_size/10);
             int iStart = 1, iEnd = 0;
             while (iStart >= iEnd) {
                 iStart = rand.nextInt(chr_size-delta);
                 iEnd = iStart + delta;
             }
-            start[i] = iStart;
-            end[i] = iEnd;
+            searchIntervals.add(new Entry(chr_, iStart, iEnd));
         }
-        Arrays.sort(start);
-        Arrays.sort(end);
+        Collections.sort(searchIntervals);
         t5 = System.currentTimeMillis() - t5;
         System.out.println("    --- Generating ranges: " + t5 + " (ms)");
         
         long t7 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
-            TabixReader.Iterator query = tabixReader.query(chr_[i], start[i], end[i]);
+            Entry e = searchIntervals.get(i);
+            TabixReader.Iterator query = tabixReader.query(e.getChromosomeName(), e.getStart(), e.getEnd());
             
             if (iterate) {
                 String next = query.next();
@@ -384,5 +385,5 @@ public class HtsjdkTest {
           total += r;
         }
         return total;
-      }
+    }
 }
