@@ -24,6 +24,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,9 +37,14 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
 import no.uio.ifi.crypt4gh.stream.Crypt4GHSeekableStreamInternal;
 import no.uio.ifi.crypt4gh.util.KeyUtils;
@@ -73,6 +79,7 @@ public class HtsjdkTest {
             options.addOption(new Option("kf", "key file", true, "Private Key File"));
             options.addOption(new Option("kp", "key password", true, "Private Key Password"));
             options.addOption(new Option("bfn", "BED file name", true, "BED ranges File name"));
+            options.addOption(new Option("is", "Interval size", true, "Search Interval size"));
 
             // Parse options
             CommandLineParser parser = new DefaultParser();
@@ -100,7 +107,14 @@ public class HtsjdkTest {
                 if (line.hasOption("kp"))
                     privateKeyPassword = line.getOptionValue("kp");
             }
-            
+            String bedFileName = "";
+            if (line.hasOption("bfn")) {
+                bedFileName = line.getOptionValue("bfn");
+            }
+            int is = -1;
+            if (line.hasOption("is")) {
+                is = Integer.parseInt("is");
+            }
             
             // Open files before passing them off to test functions:
             SeekableStream s_file = new SeekableFileStream(new File(inputFile));
@@ -127,13 +141,13 @@ public class HtsjdkTest {
                         test_1(s_file, s_index);
                         break;
                 case 3:
-                        test_2(s_file, s_index, true, num);
+                        test_2(s_file, s_index, true, num, is, bedFileName);
                         break;
                 case 4:
                         test_4(s_file);
                         break;
                 case 5:
-                        test_5(inputFile, s_file, s_index, true, num);
+                        test_5(inputFile, s_file, s_index, true, num, is, bedFileName);
                         break;
                 case 6:
                         test_6(s_file);
@@ -221,38 +235,39 @@ public class HtsjdkTest {
     private static void test_2(SeekableStream s_file,
                                SeekableStream s_index,
                                boolean iterate,
-                               int num) throws IOException, Exception {
+                               int num,
+                               int is,
+                               String bedFileName) throws IOException, Exception {
         
         SamInputResource sir3 = SamInputResource.of(s_file).index(s_index);
         SamReaderFactory srf_ = SamReaderFactory.make().validationStringency(ValidationStringency.SILENT);
         SamReader sr = srf_.open(sir3);
         
-        List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
-        SAMSequenceRecord[] entries = new SAMSequenceRecord[sequences.size()];
-        for (int y=0; y<sequences.size(); y++)
-            entries[y] = sequences.get(y);
+        boolean bedExists = (new File(bedFileName)).exists();
         
-        List<Entry> searchIntervals = new ArrayList<Entry>();
-        long t3 = System.currentTimeMillis();
-        Random rand = new Random();
-        for (int i=0; i<num; i++) {
-            int iEntry = rand.nextInt(entries.length);
-             String chr_= entries[iEntry].getSequenceName();
+        List<Entry> searchIntervals = null;
+        if (bedExists) {
+            searchIntervals = loadRanges(bedFileName);
             
-            int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_).getSequenceLength();
-            int delta = (chr_size/10)>1000000?1000000:(chr_size/10);
-        
-            int iStart = 1, iEnd = 0;
-            while (iStart >= iEnd) {
-                iStart = rand.nextInt(chr_size-delta);
-                iEnd = iStart + delta;
+        } else {        
+            List<SAMSequenceRecord> sequences = sr.getFileHeader().getSequenceDictionary().getSequences();
+            SAMSequenceRecord[] entries = new SAMSequenceRecord[sequences.size()];
+            String chr_list[] = new String[sequences.size()];
+            HashMap<String, Integer> sizes = new HashMap<>();
+            for (int y=0; y<sequences.size(); y++) {
+                entries[y] = sequences.get(y);
+                chr_list[y]= entries[y].getSequenceName();
+                int chr_size = sr.getFileHeader().getSequenceDictionary().getSequence(chr_list[y]).getSequenceLength();
+                sizes.put(chr_list[y], chr_size);
             }
+
+            int d = is==-1?1000000:is;
+            searchIntervals = getRanges(chr_list, sizes, num, d);
             
-            searchIntervals.add(new Entry(chr_, iStart, iEnd));
+            if (bedFileName.length() > 0) {
+                saveRanges(bedFileName, searchIntervals);
+            }
         }
-        Collections.sort(searchIntervals);
-        t3 = System.currentTimeMillis() - t3;
-        System.out.println("    --- Generating ranges: " + t3 + " (ms)");
 
         long t5 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
@@ -289,35 +304,43 @@ public class HtsjdkTest {
                                SeekableStream s_file,
                                SeekableStream s_index,
                                boolean iterate,
-                               int num) throws IOException {
+                               int num,
+                               int is,
+                               String bedFileName) throws IOException {
         String indexPath = filePath.endsWith(".enc")?
                 filePath.substring(0, filePath.length()-4) + ".tbi":
                 filePath + ".tbi";
         
         TabixReader tabixReader = new TabixReader(filePath, indexPath, s_file);
-        Set<String> chromosomes = tabixReader.getChromosomes();
-        Object[] entries = chromosomes.toArray();
-        List<Entry> searchIntervals = new ArrayList<Entry>();
-        long t5 = System.currentTimeMillis();
-        Random rand = new Random();
-        for (int i=0; i<num; i++) {
-            int iEntry = rand.nextInt(entries.length);
-            String chr_= (String) entries[iEntry];
-            
-            int[] parseReg = tabixReader.parseReg(chr_);
 
-            int chr_size = parseReg[2];
-            int delta = (chr_size/10)>100000?100000:(chr_size/10);
-            int iStart = 1, iEnd = 0;
-            while (iStart >= iEnd) {
-                iStart = rand.nextInt(chr_size-delta);
-                iEnd = iStart + delta;
+
+        boolean bedExists = (new File(bedFileName)).exists();
+        
+        List<Entry> searchIntervals = null;
+        if (bedExists) {
+            searchIntervals = loadRanges(bedFileName);
+            
+        } else {        
+
+            Set<String> chromosomes = tabixReader.getChromosomes();
+            Object[] entries = chromosomes.toArray();
+            String chr_list[] = new String[entries.length];
+            HashMap<String, Integer> sizes = new HashMap<>();
+            for (int y=0; y<entries.length; y++) {
+                chr_list[y] = (String) entries[y];
+                int[] parseReg = tabixReader.parseReg(chr_list[y]);
+                int chr_size = parseReg[2];
+                sizes.put(chr_list[y], chr_size);
             }
-            searchIntervals.add(new Entry(chr_, iStart, iEnd));
+
+            int d = is==-1?100000:is;
+            searchIntervals = getRanges(chr_list, sizes, num, d);
+
+            
+            if (bedFileName.length() > 0) {
+                saveRanges(bedFileName, searchIntervals);
+            }
         }
-        Collections.sort(searchIntervals);
-        t5 = System.currentTimeMillis() - t5;
-        System.out.println("    --- Generating ranges: " + t5 + " (ms)");
         
         long t7 = System.currentTimeMillis();
         for (int i=0; i<num; i++) {
@@ -385,5 +408,79 @@ public class HtsjdkTest {
           total += r;
         }
         return total;
+    }
+
+    private static List<Entry> loadRanges(String bedFileName) {
+        List<Entry> searchIntervals = new ArrayList<Entry>();
+
+        long t3 = System.currentTimeMillis();
+        try (BufferedReader br = new BufferedReader(new FileReader(bedFileName))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+               searchIntervals.add(new Entry(line));
+            }
+        } catch (FileNotFoundException ex) {        
+            Logger.getLogger(HtsjdkTest.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(HtsjdkTest.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        t3 = System.currentTimeMillis() - t3;
+        System.out.println("    --- Loading ranges from file: " + t3 + " (ms)");
+        
+        return searchIntervals;
+    }
+    private static void saveRanges(String bedFileName, List<Entry> entries) {
+        
+        long t3 = System.currentTimeMillis();
+        FileWriter fw = null;
+        try {
+            fw = new FileWriter(bedFileName);
+            Iterator<Entry> iter = entries.iterator();
+            
+            while(iter.hasNext()) {
+                fw.write(iter.next().toString() + "\n");
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(HtsjdkTest.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                fw.close();
+            } catch (IOException ex) {
+                Logger.getLogger(HtsjdkTest.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        
+        t3 = System.currentTimeMillis() - t3;
+        System.out.println("    --- Saving ranges to file: " + t3 + " (ms)");
+    }
+    
+    private static List<Entry> getRanges(String[] chr_list,
+                                         HashMap<String, Integer> sizes,
+                                         int num,
+                                         int d) {
+        List<Entry> searchIntervals = new ArrayList<Entry>();
+        long t3 = System.currentTimeMillis();
+        Random rand = new Random();
+        for (int i=0; i<num; i++) {
+            int iEntry = rand.nextInt(chr_list.length);
+            String chr_= chr_list[iEntry];
+            
+            int chr_size = sizes.get(chr_);
+            int delta = (chr_size/10)>d?d:(chr_size/10);
+        
+            int iStart = 1, iEnd = 0;
+            while (iStart >= iEnd) {
+                iStart = rand.nextInt(chr_size-delta);
+                iEnd = iStart + delta;
+            }
+            
+            searchIntervals.add(new Entry(chr_, iStart, iEnd));
+        }
+        Collections.sort(searchIntervals);
+
+        t3 = System.currentTimeMillis() - t3;
+        System.out.println("    --- Generating ranges: " + t3 + " (ms)");
+        
+        return searchIntervals;
     }
 }

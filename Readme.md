@@ -18,7 +18,10 @@ This is a Java program to test the addition of Crypt4GH to htsjdk. This addition
 
 There is one test that simply compares the unencrypted and encrypted files by randomly seeking to byte posititons and comparing the bytes read from each stream. There are 2 tests included for the BAM file, and 2 for the VCF file; each test can be run on a plain or on a GA4GH-encrypted file
 
-`java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM File} -idx {BAM Index File} -kf {Private Key File} -kp {password}`
+`java -jar store/HtsjdkTest.jar -t {Test Num} [-e] -if {BAM File} -idx {BAM Index File} -kf {Private Key File} -kp {password} [-bfn {BED File}] [-is interval_size]`
+
+* If option `-bfn` is chosen (optional), (1) if the file does not exist, the randomly generated search ranges are written to a BED like file (2) if the file exists, existing ranges are loaded from disk. This should allow for reproducible tests.
+* Option `-is` allows for specifying the size of each search interval (optional).
 
 Test 1: (generic; randomly access sections of the plain and encrypted file, ensure the data retrieved is identical. The parameter of the index file is used for the encrypted version of the file specufued with `-if`)
 

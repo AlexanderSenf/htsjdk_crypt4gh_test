@@ -5,6 +5,8 @@
  */
 package htsjdktest;
 
+import java.util.StringTokenizer;
+
 /**
  *
  * @author asenf
@@ -19,6 +21,16 @@ public class Entry implements Comparable<Entry> {
         this.end = end;
     }
     
+    /*
+     * Read lines from a BED like file
+     */
+    public Entry(String bedLine) {
+        StringTokenizer st = new StringTokenizer(bedLine);
+        this.chromosomeName = st.nextToken();
+        this.start = Integer.parseInt(st.nextToken());
+        this.end = Integer.parseInt(st.nextToken());
+    }
+
     public String getChromosomeName() {
         return this.chromosomeName;
     }
@@ -31,9 +43,12 @@ public class Entry implements Comparable<Entry> {
         return this.end;                
     }
 
+    /*
+     * Produce BED like output
+     */
     @Override
     public String toString() { 
-        return String.format(this.getChromosomeName() + ": " + this.start + "-" + this.end); 
+        return String.format(this.getChromosomeName() + "\t" + this.start + "\t" + this.end); 
     }
     
     /*
