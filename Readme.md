@@ -65,7 +65,7 @@ This test is ananalogy to test 2, but for VCF files: This test simply opens the 
 Execution Log (Ubuntu 18 VM, OpenJDK 11, 4 3.5 GHz Xeon CPU cores, 4 GB RAM, SSD)
 
 ```
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 1 -e -if 6929_4#44.bam -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
 Running Test 1
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.enc
@@ -73,67 +73,69 @@ Running Test 1
 	File opend as SeekableStreams.
 1003733655
 1003733655
-	Test 1 completed in. 9662 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
+	Test 1 completed in: 9666 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
 Running Test 2
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.bai
 	File opend as SeekableStreams.
-	Test 2 completed in. 28512 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
+	Test 2 completed in: 22131 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 2 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.enc -kf bob.sec.pem -kp password
 Running Test 2
 	Input File: 6929_4#44.bam.enc
 	Index File: 6929_4#44.bam.enc
 	Key File: bob.sec.pem
 	File opend as SeekableStreams.
-	Test 2 completed in. 35633 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -if 6929_4#44.bam -idx 6929_4#44.bam.bai
+	Test 2 completed in: 29427 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -if 6929_4#44.bam -idx 6929_4#44.bam.bai -bfn bamRanges.bed
 Running Test 3
 	Input File: 6929_4#44.bam
 	Index File: 6929_4#44.bam.bai
 	File opend as SeekableStreams.
-    --- Generating ranges: 7 (ms)
-        QueryOverlapping for 1000 queries - 81131 ms
-	Test 3 completed in. 81268 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.bai.enc -kf bob.sec.pem -kp password
+    --- Generating ranges: 5 (ms)
+    --- Saving ranges to file: 49 (ms)
+        QueryOverlapping for 1000 queries - 103517 ms
+	Test 3 completed in: 103665 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 3 -e -if 6929_4#44.bam.enc -idx 6929_4#44.bam.bai.enc -kf bob.sec.pem -kp password -bfn bamRanges.bed
 Running Test 3
 	Input File: 6929_4#44.bam.enc
 	Index File: 6929_4#44.bam.bai.enc
 	Key File: bob.sec.pem
 	File opend as SeekableStreams.
+    --- Loading ranges from file: 3 (ms)
+        QueryOverlapping for 1000 queries - 145111 ms
+	Test 3 completed in: 145229 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz -bfn vcfRanges.bed
+Running Test 5
+	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+	Index File: null
+	File opend as SeekableStreams.
     --- Generating ranges: 3 (ms)
-        QueryOverlapping for 1000 queries - 117160 ms
-	Test 3 completed in. 117312 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
-Running Test 5
-	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
-	Index File: null
-	File opend as SeekableStreams.
-    --- Generating ranges: 2 (ms)
-        Tabix Query for 1000 queries - 266873 ms
-	Test 5 completed in. 266954 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
+    --- Saving ranges to file: 58 (ms)
+        Tabix Query for 1000 queries - 18643 ms
+	Test 5 completed in: 18756 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 5 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password -bfn vcfRanges.bed
 Running Test 5
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc
 	Index File: null
 	Key File: bob.sec.pem
 	File opend as SeekableStreams.
-    --- Generating ranges: 1 (ms)
-        Tabix Query for 1000 queries - 241682 ms
-	Test 5 completed in. 241743 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+    --- Loading ranges from file: 6 (ms)
+        Tabix Query for 1000 queries - 18790 ms
+	Test 5 completed in: 18839 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 Running Test 6
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
 	Index File: null
 	File opend as SeekableStreams.
-	Test 6 completed in. 113771 ms.
-asenf@asenf-virtual-machine:~/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
+	Test 6 completed in: 96251 ms.
+asenf@asenf-virtual-machine:~/NetBeansProjects/htsjdk_crypt4gh_test$ java -jar store/HtsjdkTest.jar -t 6 -e -if ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc -kf bob.sec.pem -kp password
 Running Test 6
 	Input File: ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.enc
 	Index File: null
 	Key File: bob.sec.pem
 	File opend as SeekableStreams.
-	Test 6 completed in. 112375 ms.
+	Test 6 completed in: 97830 ms.
 ```
 
-The results show BAM processing slightly slower in encrypted mode, while VCF file processing is slightly faster using Crypt4GH files.
+The results show BAM processing slightly slower in encrypted mode, while VCF file processing is essentially identical when using Crypt4GH files.
